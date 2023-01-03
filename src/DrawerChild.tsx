@@ -4,7 +4,7 @@ import getScrollBarSize from 'rc-util/lib/getScrollBarSize';
 import KeyCode from 'rc-util/lib/KeyCode';
 import omit from 'rc-util/lib/omit';
 
-import { IDrawerChildProps } from './IDrawerPropTypes';
+import type { IDrawerChildProps } from './IDrawerPropTypes';
 
 import {
   addEventListener,
@@ -18,13 +18,16 @@ import {
   windowIsUndefined,
 } from './utils';
 
-const currentDrawer: {
-  [key: string]: boolean;
-} = {};
+const currentDrawer: Record<string, boolean> = {};
 
 interface IState {
   _self: DrawerChild;
   prevProps?: IDrawerChildProps;
+}
+
+interface Point {
+  x: number;
+  y: number;
 }
 
 class DrawerChild extends React.Component<IDrawerChildProps, IState> {
@@ -66,10 +69,7 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
 
   private passive: { passive: boolean } | boolean;
 
-  private startPos: {
-    x: number;
-    y: number;
-  };
+  private startPos: Point | null;
 
   constructor(props: IDrawerChildProps) {
     super(props);
@@ -95,7 +95,7 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
       } catch (err) {}
       this.passive = passiveSupported ? { passive: false } : false;
     }
-    const { open, getContainer } = this.props;
+    const { open, getContainer, showMask, autoFocus } = this.props;
     const container = getContainer && getContainer();
     this.drawerId = `drawer_id_${Number(
       (Date.now() + Math.random())
@@ -110,14 +110,19 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
       // 默认打开状态时推出 level;
       this.openLevelTransition();
       this.forceUpdate(() => {
-        this.domFocus();
+        if (autoFocus) {
+          this.domFocus();
+        }
       });
-      this.props.scrollLocker?.lock();
+      if (showMask) {
+        this.props.scrollLocker?.lock();
+      }
     }
   }
 
   public componentDidUpdate(prevProps: IDrawerChildProps) {
-    const { open, getContainer, scrollLocker } = this.props;
+    const { open, getContainer, scrollLocker, showMask, autoFocus } =
+      this.props;
     const container = getContainer && getContainer();
     if (open !== prevProps.open) {
       if (container && container.parentNode === document.body) {
@@ -125,8 +130,12 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
       }
       this.openLevelTransition();
       if (open) {
-        this.domFocus();
-        scrollLocker?.lock();
+        if (autoFocus) {
+          this.domFocus();
+        }
+        if (showMask) {
+          scrollLocker?.lock();
+        }
       } else {
         scrollLocker?.unLock();
       }
@@ -151,6 +160,8 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
 
   private removeStartHandler = (e: React.TouchEvent | TouchEvent) => {
     if (e.touches.length > 1) {
+      // need clear the startPos when another touch event happens
+      this.startPos = null;
       return;
     }
     this.startPos = {
@@ -160,7 +171,8 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
   };
 
   private removeMoveHandler = (e: React.TouchEvent | TouchEvent) => {
-    if (e.changedTouches.length > 1) {
+    // the startPos may be null or undefined
+    if (e.changedTouches.length > 1 || !this.startPos) {
       return;
     }
     const currentTarget = e.currentTarget as HTMLElement;
@@ -220,10 +232,8 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
 
   private openLevelTransition = () => {
     const { open, width, height } = this.props;
-    const {
-      isHorizontal,
-      placementName,
-    } = this.getHorizontalBoolAndPlacementName();
+    const { isHorizontal, placementName } =
+      this.getHorizontalBoolAndPlacementName();
     const contentValue = this.contentDom
       ? this.contentDom.getBoundingClientRect()[
           isHorizontal ? 'width' : 'height'
@@ -482,6 +492,7 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
       keyboard,
       getOpenCount,
       scrollLocker,
+      contentWrapperStyle,
       ...props
     } = this.props;
     // 首次渲染都将是关闭状态。
@@ -517,7 +528,7 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
       });
     return (
       <div
-        {...omit(props, ['switchScrollingEffect'])}
+        {...omit(props, ['switchScrollingEffect', 'autoFocus'])}
         tabIndex={-1}
         className={wrapperClassName}
         style={style}
@@ -544,6 +555,7 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
             msTransform: transform,
             width: isNumeric(width) ? `${width}px` : width,
             height: isNumeric(height) ? `${height}px` : height,
+            ...contentWrapperStyle,
           }}
           ref={c => {
             this.contentWrapper = c as HTMLElement;
@@ -554,10 +566,6 @@ class DrawerChild extends React.Component<IDrawerChildProps, IState> {
             ref={c => {
               this.contentDom = c as HTMLElement;
             }}
-            onTouchStart={
-              open && showMask ? this.removeStartHandler : undefined
-            } // 跑用例用
-            onTouchMove={open && showMask ? this.removeMoveHandler : undefined} // 跑用例用
           >
             {children}
           </div>

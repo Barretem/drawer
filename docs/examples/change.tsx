@@ -1,32 +1,55 @@
 /* eslint-disable no-console,react/no-multi-comp */
-import { Button, Icon, Menu } from 'antd';
+import { Icon, Menu } from 'antd';
 import * as React from 'react';
-import * as ReactDom from 'react-dom';
 
-import Drawer from '../src/';
+import Drawer from 'rc-drawer';
 
-import 'antd/lib/button/style';
 import 'antd/lib/menu/style';
 import 'antd/lib/style';
 
-import '../assets/index.less';
+import '../../assets/index.less';
 import './assets/index.less';
 
 const SubMenu = Menu.SubMenu;
 const MenuItemGroup = Menu.ItemGroup;
 class Demo extends React.Component {
   public state = {
-    level: ['#root'],
+    open: true,
   }
-  public onClick = () => {
+  public componentDidMount() {
+    setTimeout(() => {
+      this.setState({
+        open: false,
+      });
+    }, 2000);
+  }
+  public onChange = (bool: boolean) => {
+    console.log('change: ', bool);
+  }
+  public onTouchEnd = () => {
     this.setState({
-      level: this.state.level ? null : ['#root'],
+      open: false,
+    });
+  }
+  public onSwitch = () => {
+    this.setState({
+      open: !this.state.open,
     });
   }
   public render() {
     return (
       <div >
-        <Drawer level={this.state.level} width="20vw">
+        <Drawer
+          onChange={this.onChange}
+          open={this.state.open}
+          onClose={this.onTouchEnd}
+          handler={false}
+          level={null}
+          afterVisibleChange={(c: boolean) => {
+            console.log('transitionEnd: ', c);
+          }}
+          width="20vw"
+        >
           <Menu
             defaultSelectedKeys={['1']}
             defaultOpenKeys={['sub1']}
@@ -74,9 +97,12 @@ class Demo extends React.Component {
           }}
         >
           内容区块
-          <Button onClick={this.onClick}>
-            {this.state.level ? '切换成空 level' : '切换成标题和内容跟随动'}
-          </Button>
+          <button
+            onClick={this.onSwitch}
+            style={{ height: 24, width: 100, marginLeft: 20, color: '#000', lineHeight: '24px' }}
+          >
+            {!this.state.open ? '打开' : '关闭'}
+          </button>
         </div>
       </div>
     );

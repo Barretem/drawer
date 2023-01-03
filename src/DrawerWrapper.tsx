@@ -2,7 +2,7 @@ import Portal from 'rc-util/lib/PortalWrapper';
 import * as React from 'react';
 
 import Child from './DrawerChild';
-import { IDrawerProps, IDrawerChildProps } from './IDrawerPropTypes';
+import type { IDrawerProps, IDrawerChildProps } from './IDrawerPropTypes';
 
 interface IState {
   open: boolean;
@@ -35,6 +35,7 @@ class DrawerWrapper extends React.Component<IDrawerProps, IState> {
     className: '',
     keyboard: true,
     forceRender: false,
+    autoFocus: true,
   };
 
   public static getDerivedStateFromProps(

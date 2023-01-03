@@ -3,6 +3,11 @@ import * as React from 'react';
 import toJson from 'enzyme-to-json';
 import Drawer from '../src';
 
+interface Point {
+  x: number;
+  y: number;
+}
+
 function Div(props) {
   const { show, ...otherProps } = props;
   return (
@@ -41,6 +46,18 @@ function createMoveTouchEventObject({ x = 0, y = 0 }) {
   return {
     touches: [createClientXY(x, y)],
     changedTouches: [createClientXY(x, y)],
+  };
+}
+
+function createMultiStartTouchEventObject(points: Point[]) {
+  return { touches: points.map(point => createClientXY(point.x, point.y)) };
+}
+
+function createMultiMoveTouchEventObject(points: Point[]) {
+  const touches = points.map(point => createClientXY(point.x, point.y));
+  return {
+    touches,
+    changedTouches: touches,
   };
 }
 
@@ -90,6 +107,27 @@ describe('rc-drawer-menu', () => {
     content.simulate('touchStart', createStartTouchEventObject({ x: 0, y: 0 }));
     content.simulate('touchMove', createMoveTouchEventObject({ x: 0, y: 10 }));
     content.simulate('touchEnd', createMoveTouchEventObject({ x: 0, y: 10 }));
+    content.simulate(
+      'touchStart',
+      createMultiStartTouchEventObject([
+        { x: 0, y: 0 },
+        { x: 100, y: 100 },
+      ]),
+    );
+    content.simulate(
+      'touchMove',
+      createMultiMoveTouchEventObject([
+        { x: 0, y: 10 },
+        { x: 100, y: 120 },
+      ]),
+    );
+    content.simulate(
+      'touchEnd',
+      createMultiMoveTouchEventObject([
+        { x: 0, y: 10 },
+        { x: 100, y: 120 },
+      ]),
+    );
     console.log('transform is empty:', drawer.style.transform);
     expect(drawer.style.transform).toEqual('');
   });
@@ -216,5 +254,47 @@ describe('rc-drawer-menu', () => {
       show: false,
     });
     expect(toJson(instance.render())).toMatchSnapshot();
+  });
+
+  it('contentWrapperStyle', () => {
+    instance = mount(
+      <Drawer contentWrapperStyle={{ background: '#f00' }} level={null} />,
+    );
+    const content = instance.find('.drawer-content-wrapper').instance() as any;
+    expect(content.style.background).toBe('rgb(255, 0, 0)');
+  });
+
+  it('autoFocus', () => {
+    instance = mount(
+      <Drawer
+        autoFocus={false}
+        open={true}
+        getContainer={null}
+        wrapperClassName="auto-focus-test-wrapper"
+      >
+        <p className="text">Here is content of Drawer</p>
+      </Drawer>,
+    );
+
+    // In case { autoFocus: false }, default activeElement shouldn't be drawer node
+    expect(document.activeElement).not.toBe(
+      instance.find('.auto-focus-test-wrapper .drawer').at(0).getDOMNode(),
+    );
+
+    // autofocus should not treat as dom attribute when {autofocus: false}
+    expect(instance.html().indexOf('autofocus')).toBe(-1);
+
+    // Close and reopen drawer with props {autoFocus: true}
+    instance.setProps({ open: false, autoFocus: true });
+
+    instance.setProps({ open: true });
+
+    // In case { autoFocus: true }, by which is also <Drawer />'s default, the activeElement will be drawer by itself
+    expect(document.activeElement).toBe(
+      instance.find('.auto-focus-test-wrapper .drawer').at(0).getDOMNode(),
+    );
+
+    // autofocus should not treat as dom attribute when {autofocus: true}
+    expect(instance.html().indexOf('autofocus')).toBe(-1);
   });
 });
